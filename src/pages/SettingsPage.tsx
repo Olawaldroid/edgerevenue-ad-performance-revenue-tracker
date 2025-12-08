@@ -5,8 +5,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T) => void] => {
+import { motion } from 'framer-motion';
+import { Plus, Trash2 } from 'lucide-react';
+const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] => {
   const [storedValue, setStoredValue] = useState<T>(() => {
     try {
       const item = window.localStorage.getItem(key);
@@ -16,29 +20,48 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T) => vo
       return initialValue;
     }
   });
-  const setValue = (value: T) => {
+  const setValue = (value: T | ((val: T) => T)) => {
     try {
-      setStoredValue(value);
-      window.localStorage.setItem(key, JSON.stringify(value));
+      const valueToStore = value instanceof Function ? value(storedValue) : value;
+      setStoredValue(valueToStore);
+      window.localStorage.setItem(key, JSON.stringify(valueToStore));
     } catch (error) {
       console.error(error);
     }
   };
   return [storedValue, setValue];
 };
+interface User { id: string; name: string; email: string; }
 export function SettingsPage() {
   const [timezone, setTimezone] = useLocalStorage('settings:timezone', 'utc');
   const [currency, setCurrency] = useLocalStorage('settings:currency', 'usd');
   const [emailNotifications, setEmailNotifications] = useLocalStorage('settings:emailNotifications', false);
   const [anomalyAlerts, setAnomalyAlerts] = useLocalStorage('settings:anomalyAlerts', true);
   const [dataRetention, setDataRetention] = useLocalStorage('settings:dataRetention', '30d');
+  const [users, setUsers] = useLocalStorage<User[]>('settings:users', [{ id: 'user1', name: 'Demo User', email: 'demo@edgerevenue.com' }]);
+  const [currentUser, setCurrentUser] = useLocalStorage('settings:currentUser', 'user1');
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [isSheetOpen, setSheetOpen] = useState(false);
   useEffect(() => {
     toast.info("Settings are saved locally in your browser.");
   }, []);
+  const handleAddUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserName.trim() || !newUserEmail.trim()) {
+      toast.warning("Name and email are required.");
+      return;
+    }
+    const newUser = { id: `user${Date.now()}`, name: newUserName, email: newUserEmail };
+    setUsers(prev => [...prev, newUser]);
+    toast.success("Team member added.");
+    setNewUserName('');
+    setNewUserEmail('');
+    setSheetOpen(false);
+  };
   const handleDeleteAccount = () => {
     localStorage.clear();
     toast.success("Account data cleared from local storage.");
-    // In a real app, this would navigate or reload.
     setTimeout(() => window.location.reload(), 1000);
   };
   return (
@@ -47,6 +70,23 @@ export function SettingsPage() {
         <div className="max-w-3xl mx-auto">
           <h1 className="text-3xl font-bold tracking-tight mb-8">Settings</h1>
           <div className="space-y-8">
+            <Card>
+              <CardHeader><CardTitle>Team Members</CardTitle><CardDescription>Manage team access.</CardDescription></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between"><Label htmlFor="current-user">Current User</Label><Select value={currentUser} onValueChange={setCurrentUser}><SelectTrigger className="w-[240px]"><SelectValue placeholder="Select user" /></SelectTrigger><SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent></Select></div>
+                <Sheet open={isSheetOpen} onOpenChange={setSheetOpen}>
+                  <SheetTrigger asChild><Button variant="outline" size="sm"><Plus className="mr-2 h-4 w-4" /> Add Member</Button></SheetTrigger>
+                  <SheetContent>
+                    <SheetHeader><SheetTitle>Add Team Member</SheetTitle><SheetDescription>Invite a new member to your team.</SheetDescription></SheetHeader>
+                    <form onSubmit={handleAddUser} className="py-4 space-y-4">
+                      <div><Label htmlFor="new-name">Name</Label><Input id="new-name" value={newUserName} onChange={e => setNewUserName(e.target.value)} /></div>
+                      <div><Label htmlFor="new-email">Email</Label><Input id="new-email" type="email" value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} /></div>
+                      <SheetFooter><Button type="submit">Add Member</Button></SheetFooter>
+                    </form>
+                  </SheetContent>
+                </Sheet>
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader><CardTitle>Display</CardTitle><CardDescription>Customize the appearance of the app.</CardDescription></CardHeader>
               <CardContent className="space-y-6">
@@ -58,7 +98,7 @@ export function SettingsPage() {
               <CardHeader><CardTitle>Notifications</CardTitle><CardDescription>Manage how you receive notifications.</CardDescription></CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex items-center justify-between"><div><Label htmlFor="email-notifications">Email Notifications</Label><p className="text-sm text-muted-foreground">Receive weekly performance summaries.</p></div><Switch id="email-notifications" checked={emailNotifications} onCheckedChange={setEmailNotifications} /></div>
-                <div className="flex items-center justify-between"><div><Label htmlFor="anomaly-alerts">Anomaly Alerts</Label><p className="text-sm text-muted-foreground">Get notified of unusual spend or revenue changes.</p></div><Switch id="anomaly-alerts" checked={anomalyAlerts} onCheckedChange={setAnomalyAlerts} /></div>
+                <div className="flex items-center justify-between"><div><Label htmlFor="anomaly-alerts">Anomaly Alerts</Label><p className="text-sm text-muted-foreground">Get notified of unusual spend or revenue changes.</p></div><Switch id="anomaly-alerts" checked={anomalyAlerts} onCheckedChange={(checked) => { setAnomalyAlerts(checked); toast.info(`Anomaly alert emails ${checked ? 'enabled' : 'disabled'}.`); }} /></div>
               </CardContent>
             </Card>
             <Card>

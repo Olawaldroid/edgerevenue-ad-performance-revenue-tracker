@@ -12,6 +12,7 @@ import { Plus, Loader2, CheckCircle, AlertTriangle, TestTube2 } from 'lucide-rea
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
+import { Skeleton } from '@/components/ui/skeleton';
 function IntegrationCard({ account }: { account: IntegrationAccount }) {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<'idle' | 'pulling' | 'success' | 'error'>('idle');

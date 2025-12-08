@@ -17,9 +17,9 @@ export class RevenueSeriesEntity extends IndexedEntity<RevenueSeries> {
   static readonly indexName = "revenue_series_by_account_date";
   static readonly initialState: RevenueSeries = { id: "", accountId: "", date: "", revenueCents: 0, spendCents: 0 };
   // Use a composite key for ID to ensure uniqueness per account per day
-  static override keyOf(state: RevenueSeries): string {
-    // The 'id' property is required by IndexedEntity, so we ensure it's set correctly.
-    return state.id || `${state.accountId}:${state.date}`;
+  static override keyOf<U extends { id: string }>(state: U & Partial<RevenueSeries>): string {
+    const s = state as RevenueSeries;
+    return s.id || `${s.accountId}:${s.date}`;
   }
   static async pullMockData(env: Env, accountId: string): Promise<number> {
     const mockDataForAccount = MOCK_REVENUE_SERIES.filter(r => r.accountId === accountId);
@@ -27,7 +27,7 @@ export class RevenueSeriesEntity extends IndexedEntity<RevenueSeries> {
       return 0;
     }
     const account = new IntegrationAccountEntity(env, accountId);
-    if (!await account.exists()) {
+    if (!(await account.exists())) {
       throw new Error("Account not found");
     }
     const allSeries = await this.listAll(env);
@@ -51,7 +51,10 @@ export class RevenueSeriesEntity extends IndexedEntity<RevenueSeries> {
   static async listAll(env: Env): Promise<RevenueSeries[]> {
     const idx = new Index<string>(env, this.indexName);
     const ids = await idx.list();
+    if (ids.length === 0) return [];
     const seriesPromises = ids.map(id => new this(env, id).getState());
-    return Promise.all(seriesPromises);
+    const results = await Promise.all(seriesPromises);
+    // Filter out any potentially null/undefined states if entity was deleted but index not pruned
+    return results.filter((s): s is RevenueSeries => !!s?.id);
   }
 }
