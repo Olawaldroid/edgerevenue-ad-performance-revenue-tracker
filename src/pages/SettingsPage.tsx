@@ -9,9 +9,12 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus } from 'lucide-react';
 const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] => {
   const [storedValue, setStoredValue] = useState<T>(() => {
+    if (typeof window === 'undefined') {
+      return initialValue;
+    }
     try {
       const item = window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
@@ -24,7 +27,9 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T | ((va
     try {
       const valueToStore = value instanceof Function ? value(storedValue) : value;
       setStoredValue(valueToStore);
-      window.localStorage.setItem(key, JSON.stringify(valueToStore));
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(key, JSON.stringify(valueToStore));
+      }
     } catch (error) {
       console.error(error);
     }
@@ -44,7 +49,11 @@ export function SettingsPage() {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [isSheetOpen, setSheetOpen] = useState(false);
   useEffect(() => {
-    toast.info("Settings are saved locally in your browser.");
+    const hasShownToast = sessionStorage.getItem('settingsToastShown');
+    if (!hasShownToast) {
+      toast.info("Settings are saved locally in your browser.");
+      sessionStorage.setItem('settingsToastShown', 'true');
+    }
   }, []);
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,8 +70,10 @@ export function SettingsPage() {
   };
   const handleDeleteAccount = () => {
     localStorage.clear();
-    toast.success("Account data cleared from local storage.");
-    setTimeout(() => window.location.reload(), 1000);
+    toast.success("Account data cleared from local storage.", {
+        description: "The application will now reload."
+    });
+    setTimeout(() => window.location.reload(), 1500);
   };
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
