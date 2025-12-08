@@ -1,0 +1,17 @@
+/*
+  Content-Type headers for static assets.
+*/
+*.js      application/javascript
+*.mjs     application/javascript
+*.css     text/css
+*.woff2   font/woff2
+*.woff    font/woff
+*.ttf     font/ttf
+*.eot     application/vnd.ms-fontobject
+*.svg     image/svg+xml
+*.png     image/png
+*.jpg     image/jpeg
+*.jpeg    image/jpeg
+*.gif     image/gif
+*.ico     image/x-icon
+*.json    application/json
