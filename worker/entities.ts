@@ -1,7 +1,6 @@
-import { IndexedEntity } from "./core-utils";
+import { IndexedEntity, Index, type Env } from "./core-utils";
 import type { IntegrationAccount, RevenueSeries } from "@shared/types";
 import { MOCK_INTEGRATION_ACCOUNTS, MOCK_REVENUE_SERIES } from "@shared/mock-data";
-import { format } from 'date-fns';
 // INTEGRATION ACCOUNT ENTITY
 export class IntegrationAccountEntity extends IndexedEntity<IntegrationAccount> {
   static readonly entityName = "integration_account";
@@ -18,29 +17,28 @@ export class RevenueSeriesEntity extends IndexedEntity<RevenueSeries> {
   static readonly indexName = "revenue_series_by_account_date";
   static readonly initialState: RevenueSeries = { id: "", accountId: "", date: "", revenueCents: 0, spendCents: 0 };
   // Use a composite key for ID to ensure uniqueness per account per day
-  static keyOf(state: RevenueSeries): string {
-    return `${state.accountId}:${state.date}`;
+  static override keyOf(state: RevenueSeries): string {
+    // The 'id' property is required by IndexedEntity, so we ensure it's set correctly.
+    return state.id || `${state.accountId}:${state.date}`;
   }
   static async pullMockData(env: Env, accountId: string): Promise<number> {
     const mockDataForAccount = MOCK_REVENUE_SERIES.filter(r => r.accountId === accountId);
     if (mockDataForAccount.length === 0) {
       return 0;
     }
-    // In a real scenario, you'd fetch from an API. Here we just "find" the mock data.
-    // For this demo, we'll just ensure the mock data is seeded.
     const account = new IntegrationAccountEntity(env, accountId);
     if (!await account.exists()) {
       throw new Error("Account not found");
     }
-    const existingKeys = new Set<string>();
     const allSeries = await this.listAll(env);
-    allSeries.forEach(s => existingKeys.add(s.id));
-    const newSeries = mockDataForAccount.filter(s => !existingKeys.has(this.keyOf(s)));
-    for (const series of newSeries) {
-      await this.create(env, { ...series, id: this.keyOf(series) });
+    const existingKeys = new Set<string>(allSeries.map(s => s.id));
+    const newSeriesData = mockDataForAccount.filter(s => !existingKeys.has(this.keyOf(s)));
+    for (const series of newSeriesData) {
+      const newRecord: RevenueSeries = { ...series, id: this.keyOf(series) };
+      await this.create(env, newRecord);
     }
     await account.recordPull();
-    return newSeries.length;
+    return newSeriesData.length;
   }
   static async getForRange(env: Env, accountId: string, start: string, end: string): Promise<RevenueSeries[]> {
     // This is inefficient for large datasets. A real implementation would use better indexing.
@@ -51,16 +49,9 @@ export class RevenueSeriesEntity extends IndexedEntity<RevenueSeries> {
       .sort((a, b) => a.date.localeCompare(b.date));
   }
   static async listAll(env: Env): Promise<RevenueSeries[]> {
-    const idx = new (this.getIndexClass())(env, this.indexName);
+    const idx = new Index<string>(env, this.indexName);
     const ids = await idx.list();
-    return Promise.all(ids.map(id => new this(env, id).getState()));
-  }
-  // Helper to get the Index class constructor
-  private static getIndexClass() {
-    // A bit of a hack to access the protected Index class from core-utils if needed,
-    // but for now we can just use the public static methods.
-    // This is just to satisfy the type system for creating an index instance.
-    const { Index } = require("./core-utils");
-    return Index;
+    const seriesPromises = ids.map(id => new this(env, id).getState());
+    return Promise.all(seriesPromises);
   }
 }

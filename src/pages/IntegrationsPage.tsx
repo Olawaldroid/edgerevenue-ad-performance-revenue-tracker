@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import type { IntegrationAccount, IntegrationPlatform } from '@shared/types';
@@ -8,9 +8,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Plus, Loader2, CheckCircle, AlertTriangle, TestTube2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
+import { motion } from 'framer-motion';
 function IntegrationCard({ account }: { account: IntegrationAccount }) {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<'idle' | 'pulling' | 'success' | 'error'>('idle');
@@ -21,6 +22,7 @@ function IntegrationCard({ account }: { account: IntegrationAccount }) {
       toast.success(`Pull for ${account.accountName} successful.`, { description: data.message });
       setStatus('success');
       queryClient.invalidateQueries({ queryKey: ['integrations'] });
+      queryClient.invalidateQueries({ queryKey: ['report'] });
       setTimeout(() => setStatus('idle'), 3000);
     },
     onError: (error) => {
@@ -29,6 +31,12 @@ function IntegrationCard({ account }: { account: IntegrationAccount }) {
       setTimeout(() => setStatus('idle'), 5000);
     },
   });
+  const testConnection = () => {
+    toast.info("Testing connection...", { id: 'test-connection' });
+    setTimeout(() => {
+        toast.success("Connection successful!", { id: 'test-connection' });
+    }, 1500);
+  }
   const getStatusIcon = () => {
     switch (status) {
       case 'pulling': return <Loader2 className="h-4 w-4 animate-spin" />;
@@ -38,29 +46,56 @@ function IntegrationCard({ account }: { account: IntegrationAccount }) {
     }
   };
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          {account.platform === 'facebook_ads' ? 'Facebook Ads' : 'Google AdSense'}
-        </CardTitle>
-        <CardDescription>{account.accountName}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">
-          Last pulled: {account.lastPulledAt ? `${formatDistanceToNow(new Date(account.lastPulledAt))} ago` : 'Never'}
-        </p>
-      </CardContent>
-      <CardFooter className="flex justify-between">
-        <Button variant="outline" size="sm" disabled>Test Connection</Button>
-        <Button size="sm" onClick={() => pullMutation.mutate()} disabled={status === 'pulling'}>
-          {getStatusIcon()}
-          <span className={status !== 'idle' ? 'ml-2' : ''}>
-            {status === 'pulling' ? 'Pulling...' : 'Pull Now'}
-          </span>
-        </Button>
-      </CardFooter>
-    </Card>
+    <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
+      <Card className="flex flex-col h-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            {account.platform === 'facebook_ads' ? 'Facebook Ads' : 'Google AdSense'}
+          </CardTitle>
+          <CardDescription>{account.accountName}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex-1">
+          <p className="text-sm text-muted-foreground">
+            Last pulled: {account.lastPulledAt ? `${formatDistanceToNow(new Date(account.lastPulledAt))} ago` : 'Never'}
+          </p>
+        </CardContent>
+        <CardFooter className="flex justify-between">
+          <Button variant="outline" size="sm" onClick={testConnection}><TestTube2 className="mr-2 h-4 w-4" />Test</Button>
+          <Button size="sm" onClick={() => pullMutation.mutate()} disabled={status === 'pulling'}>
+            {getStatusIcon()}
+            <span className={status !== 'idle' ? 'ml-2' : ''}>
+              {status === 'pulling' ? 'Pulling...' : 'Pull Now'}
+            </span>
+          </Button>
+        </CardFooter>
+      </Card>
+    </motion.div>
   );
+}
+function EmptyStateCanvas() {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const isDark = document.documentElement.classList.contains('dark');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const barColor = isDark ? '#3f3f46' : '#e4e4e7';
+        const revenueColor = isDark ? 'hsl(var(--chart-2))' : 'hsl(var(--chart-2))';
+        const spendColor = isDark ? 'hsl(var(--chart-5))' : 'hsl(var(--chart-5))';
+        // Draw bars
+        ctx.fillStyle = barColor;
+        ctx.fillRect(30, 80, 20, -50);
+        ctx.fillRect(60, 80, 20, -30);
+        ctx.fillStyle = revenueColor;
+        ctx.fillRect(90, 80, 20, -60);
+        ctx.fillStyle = spendColor;
+        ctx.fillRect(90, 80, 20, 20);
+        ctx.fillStyle = barColor;
+        ctx.fillRect(120, 80, 20, -40);
+    }, []);
+    return <canvas ref={canvasRef} width="170" height="100" className="opacity-50" />;
 }
 export function IntegrationsPage() {
   const [isSheetOpen, setSheetOpen] = useState(false);
@@ -111,25 +146,25 @@ export function IntegrationsPage() {
               </SheetHeader>
               <form onSubmit={handleSubmit}>
                 <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="platform" className="text-right">Platform</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="platform">Platform</Label>
                     <Select onValueChange={(value) => setPlatform(value as IntegrationPlatform)} defaultValue={platform}>
-                      <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select a platform" />
-                      </SelectTrigger>
+                      <SelectTrigger id="platform"><SelectValue placeholder="Select a platform" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="facebook_ads">Facebook Ads</SelectItem>
                         <SelectItem value="google_adsense">Google AdSense</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="name" className="text-right">Account Name</Label>
-                    <Input id="name" value={accountName} onChange={(e) => setAccountName(e.target.value)} className="col-span-3" placeholder="e.g. My Main Campaign" />
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Account Name</Label>
+                    <Input id="name" value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="e.g. My Main Campaign" />
                   </div>
-                  <p className="text-sm text-muted-foreground text-center col-span-4 pt-4">
-                    In this demo, credentials are not required. We'll use mock data.
-                  </p>
+                  <div className="space-y-2 pt-4">
+                    <Label>API Credentials (Mock)</Label>
+                    <Input disabled value="[mock-api-key-prefilled]" />
+                    <p className="text-sm text-muted-foreground">In this demo, credentials are not required.</p>
+                  </div>
                 </div>
                 <SheetFooter>
                   <Button type="submit" disabled={addAccountMutation.isPending}>
@@ -142,14 +177,17 @@ export function IntegrationsPage() {
           </Sheet>
         </div>
         {isLoading ? (
-          <p>Loading integrations...</p>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-52 w-full" />)}
+          </div>
         ) : accounts && accounts.length > 0 ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {accounts.map(acc => <IntegrationCard key={acc.id} account={acc} />)}
           </div>
         ) : (
-          <div className="text-center py-16 border-2 border-dashed rounded-lg">
-            <h3 className="text-xl font-semibold">No integrations yet</h3>
+          <div className="text-center py-16 border-2 border-dashed rounded-lg flex flex-col items-center">
+            <EmptyStateCanvas />
+            <h3 className="text-xl font-semibold mt-4">No integrations yet</h3>
             <p className="text-muted-foreground mt-2">Click "Add Integration" to connect your first account.</p>
           </div>
         )}
