@@ -3,22 +3,18 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
 }
-
-// Minimal real-world chat example types (shared by frontend and worker)
-export interface User {
+// EdgeRevenue specific types
+export type IntegrationPlatform = 'facebook_ads' | 'google_adsense';
+export interface IntegrationAccount {
   id: string;
-  name: string;
+  platform: IntegrationPlatform;
+  accountName: string;
+  lastPulledAt?: string; // ISO string
 }
-
-export interface Chat {
-  id: string;
-  title: string;
-}
-
-export interface ChatMessage {
-  id: string;
-  chatId: string;
-  userId: string;
-  text: string;
-  ts: number; // epoch millis
+export interface RevenueSeries {
+  id: string; // composite key: accountId:date
+  accountId: string;
+  date: string; // YYYY-MM-DD
+  revenueCents: number;
+  spendCents: number;
 }

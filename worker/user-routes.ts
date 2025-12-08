@@ -1,75 +1,89 @@
 import { Hono } from "hono";
 import type { Env } from './core-utils';
-import { UserEntity, ChatBoardEntity } from "./entities";
+import { IntegrationAccountEntity, RevenueSeriesEntity } from "./entities";
 import { ok, bad, notFound, isStr } from './core-utils';
-
+import type { IntegrationAccount, IntegrationPlatform } from "@shared/types";
+import { format, subDays, startOfDay } from 'date-fns';
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
-  app.get('/api/test', (c) => c.json({ success: true, data: { name: 'CF Workers Demo' }}));
-
-  // USERS
-  app.get('/api/users', async (c) => {
-    await UserEntity.ensureSeed(c.env);
-    const cq = c.req.query('cursor');
-    const lq = c.req.query('limit');
-    const page = await UserEntity.list(c.env, cq ?? null, lq ? Math.max(1, (Number(lq) | 0)) : undefined);
-    return ok(c, page);
+  // Ensure seed data is present on first load
+  app.use('/api/*', async (c, next) => {
+    await IntegrationAccountEntity.ensureSeed(c.env);
+    await next();
   });
-
-  app.post('/api/users', async (c) => {
-    const { name } = (await c.req.json()) as { name?: string };
-    if (!name?.trim()) return bad(c, 'name required');
-    return ok(c, await UserEntity.create(c.env, { id: crypto.randomUUID(), name: name.trim() }));
+  // INTEGRATIONS
+  app.get('/api/integrations', async (c) => {
+    const page = await IntegrationAccountEntity.list(c.env);
+    return ok(c, page.items);
   });
-
-  // CHATS
-  app.get('/api/chats', async (c) => {
-    await ChatBoardEntity.ensureSeed(c.env);
-    const cq = c.req.query('cursor');
-    const lq = c.req.query('limit');
-    const page = await ChatBoardEntity.list(c.env, cq ?? null, lq ? Math.max(1, (Number(lq) | 0)) : undefined);
-    return ok(c, page);
+  app.post('/api/integrations', async (c) => {
+    const { platform, accountName } = (await c.req.json()) as { platform?: IntegrationPlatform, accountName?: string };
+    if (!platform || !accountName?.trim()) return bad(c, 'platform and accountName required');
+    const newAccount: IntegrationAccount = {
+      id: crypto.randomUUID(),
+      platform,
+      accountName: accountName.trim(),
+    };
+    const created = await IntegrationAccountEntity.create(c.env, newAccount);
+    return ok(c, created);
   });
-
-  app.post('/api/chats', async (c) => {
-    const { title } = (await c.req.json()) as { title?: string };
-    if (!title?.trim()) return bad(c, 'title required');
-    const created = await ChatBoardEntity.create(c.env, { id: crypto.randomUUID(), title: title.trim(), messages: [] });
-    return ok(c, { id: created.id, title: created.title });
+  app.post('/api/integrations/:id/pull', async (c) => {
+    const { id } = c.req.param();
+    if (!isStr(id)) return bad(c, 'Invalid ID');
+    try {
+      const recordsPulled = await RevenueSeriesEntity.pullMockData(c.env, id);
+      return ok(c, { message: `Successfully pulled ${recordsPulled} new records.` });
+    } catch (error) {
+      console.error(`Pull failed for account ${id}:`, error);
+      return notFound(c, error instanceof Error ? error.message : 'Pull failed');
+    }
   });
-
-  // MESSAGES
-  app.get('/api/chats/:chatId/messages', async (c) => {
-    const chat = new ChatBoardEntity(c.env, c.req.param('chatId'));
-    if (!await chat.exists()) return notFound(c, 'chat not found');
-    return ok(c, await chat.listMessages());
+  // REPORTS
+  app.get('/api/reports/daily', async (c) => {
+    const accountId = c.req.query('accountId');
+    if (!isStr(accountId)) return bad(c, 'accountId is required');
+    const endDate = startOfDay(new Date());
+    const startDate = subDays(endDate, 29);
+    const startStr = format(startDate, 'yyyy-MM-dd');
+    const endStr = format(endDate, 'yyyy-MM-dd');
+    const series = await RevenueSeriesEntity.getForRange(c.env, accountId, startStr, endStr);
+    // Ensure data for all days in the range (fill gaps with 0)
+    const dateMap = new Map(series.map(s => [s.date, s]));
+    const fullSeries = [];
+    for (let i = 0; i < 30; i++) {
+        const date = subDays(endDate, i);
+        const dateStr = format(date, 'yyyy-MM-dd');
+        if (dateMap.has(dateStr)) {
+            fullSeries.push(dateMap.get(dateStr)!);
+        } else {
+            fullSeries.push({
+                id: `${accountId}:${dateStr}`,
+                accountId,
+                date: dateStr,
+                revenueCents: 0,
+                spendCents: 0,
+            });
+        }
+    }
+    return ok(c, fullSeries.sort((a, b) => a.date.localeCompare(b.date)));
   });
-
-  app.post('/api/chats/:chatId/messages', async (c) => {
-    const chatId = c.req.param('chatId');
-    const { userId, text } = (await c.req.json()) as { userId?: string; text?: string };
-    if (!isStr(userId) || !text?.trim()) return bad(c, 'userId and text required');
-    const chat = new ChatBoardEntity(c.env, chatId);
-    if (!await chat.exists()) return notFound(c, 'chat not found');
-    return ok(c, await chat.sendMessage(userId, text.trim()));
-  });
-
-  // DELETE: Users
-  app.delete('/api/users/:id', async (c) => ok(c, { id: c.req.param('id'), deleted: await UserEntity.delete(c.env, c.req.param('id')) }));
-
-  app.post('/api/users/deleteMany', async (c) => {
-    const { ids } = (await c.req.json()) as { ids?: string[] };
-    const list = ids?.filter(isStr) ?? [];
-    if (list.length === 0) return bad(c, 'ids required');
-    return ok(c, { deletedCount: await UserEntity.deleteMany(c.env, list), ids: list });
-  });
-
-  // DELETE: Chats
-  app.delete('/api/chats/:id', async (c) => ok(c, { id: c.req.param('id'), deleted: await ChatBoardEntity.delete(c.env, c.req.param('id')) }));
-
-  app.post('/api/chats/deleteMany', async (c) => {
-    const { ids } = (await c.req.json()) as { ids?: string[] };
-    const list = ids?.filter(isStr) ?? [];
-    if (list.length === 0) return bad(c, 'ids required');
-    return ok(c, { deletedCount: await ChatBoardEntity.deleteMany(c.env, list), ids: list });
+  // CSV EXPORT (simple implementation)
+  app.get('/api/export/csv', async (c) => {
+    const accountId = c.req.query('accountId');
+    if (!isStr(accountId)) return bad(c, 'accountId is required');
+    const endDate = startOfDay(new Date());
+    const startDate = subDays(endDate, 29);
+    const startStr = format(startDate, 'yyyy-MM-dd');
+    const endStr = format(endDate, 'yyyy-MM-dd');
+    const series = await RevenueSeriesEntity.getForRange(c.env, accountId, startStr, endStr);
+    let csv = 'Date,Revenue,Spend\n';
+    series.forEach(s => {
+      csv += `${s.date},${(s.revenueCents / 100).toFixed(2)},${(s.spendCents / 100).toFixed(2)}\n`;
+    });
+    return new Response(csv, {
+      headers: {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': `attachment; filename="export-${accountId}-${endStr}.csv"`,
+      },
+    });
   });
 }
