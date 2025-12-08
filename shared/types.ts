@@ -17,4 +17,29 @@ export interface RevenueSeries {
   date: string; // YYYY-MM-DD
   revenueCents: number;
   spendCents: number;
+  // Used for aggregated reports to trace back spend
+  originalAccountId?: string;
+}
+export type UserPlan = 'free' | 'pro' | 'enterprise';
+export interface User {
+  id: string;
+  plan: UserPlan;
+  dailyPulls: {
+    date: string; // YYYY-MM-DD
+    count: number;
+  }[];
+  createdAt?: string;
+}
+export interface AdvancedReport {
+  totalRevenue: number;
+  totalSpend: number;
+  ltv: number;
+  roi: number;
+  cohorts: { week: string; revenue: number; spend: number }[];
+}
+export interface AggregatedReport extends AdvancedReport {
+    spendAccountsBreakdown: {
+        accountId: string;
+        totalSpend: number;
+    }[];
 }

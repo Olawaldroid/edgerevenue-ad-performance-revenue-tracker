@@ -8,11 +8,12 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Loader2, CheckCircle, AlertTriangle, TestTube2 } from 'lucide-react';
+import { Plus, Loader2, CheckCircle, AlertTriangle, TestTube2, Trash } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 function IntegrationCard({ account }: { account: IntegrationAccount }) {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<'idle' | 'pulling' | 'success' | 'error'>('idle');
@@ -24,12 +25,26 @@ function IntegrationCard({ account }: { account: IntegrationAccount }) {
       setStatus('success');
       queryClient.invalidateQueries({ queryKey: ['integrations'] });
       queryClient.invalidateQueries({ queryKey: ['report'] });
+      queryClient.invalidateQueries({ queryKey: ['advancedReport'] });
       setTimeout(() => setStatus('idle'), 3000);
     },
-    onError: (error) => {
-      toast.error(`Pull for ${account.accountName} failed.`, { description: error.message });
+    onError: (error: any) => {
+      const errorMessage = error.message || 'An unknown error occurred.';
+      toast.error(`Pull for ${account.accountName} failed.`, { description: errorMessage });
       setStatus('error');
       setTimeout(() => setStatus('idle'), 5000);
+    },
+  });
+  const deleteMutation = useMutation({
+    mutationFn: () => api(`/api/integrations/${account.id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      toast.success('Integration deleted successfully.');
+      queryClient.invalidateQueries({ queryKey: ['integrations'] });
+      queryClient.invalidateQueries({ queryKey: ['report'] });
+      queryClient.invalidateQueries({ queryKey: ['advancedReport'] });
+    },
+    onError: (error: Error) => {
+      toast.error('Failed to delete integration.', { description: error.message });
     },
   });
   const testConnection = () => {
@@ -49,11 +64,34 @@ function IntegrationCard({ account }: { account: IntegrationAccount }) {
   return (
     <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
       <Card className="flex flex-col h-full">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {account.platform === 'facebook_ads' ? 'Facebook Ads' : 'Google AdSense'}
-          </CardTitle>
-          <CardDescription>{account.accountName}</CardDescription>
+        <CardHeader className="flex-row items-start justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              {account.platform === 'facebook_ads' ? 'Facebook Ads' : 'Google AdSense'}
+            </CardTitle>
+            <CardDescription>{account.accountName}</CardDescription>
+          </div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                <Trash className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Integration?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently remove the "{account.accountName}" integration and all its associated historical data. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => deleteMutation.mutate()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </CardHeader>
         <CardContent className="flex-1">
           <p className="text-sm text-muted-foreground">
@@ -83,8 +121,8 @@ function EmptyStateCanvas() {
         const isDark = document.documentElement.classList.contains('dark');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         const barColor = isDark ? '#3f3f46' : '#e4e4e7';
-        const revenueColor = isDark ? 'hsl(var(--chart-2))' : 'hsl(var(--chart-2))';
-        const spendColor = isDark ? 'hsl(var(--chart-5))' : 'hsl(var(--chart-5))';
+        const revenueColor = 'hsl(var(--chart-2))';
+        const spendColor = 'hsl(var(--chart-5))';
         // Draw bars
         ctx.fillStyle = barColor;
         ctx.fillRect(30, 80, 20, -50);
@@ -179,7 +217,7 @@ export function IntegrationsPage() {
         </div>
         {isLoading ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-52 w-full" />)}
+            {Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-56 w-full" />)}
           </div>
         ) : accounts && accounts.length > 0 ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
