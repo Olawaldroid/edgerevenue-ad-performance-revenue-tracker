@@ -2,7 +2,7 @@
 EdgeRevenue is a visually exceptional, Cloudflare edge-native web application designed to track historical ad revenue. It pulls spend data from Facebook Ads and daily earnings from Google AdSense (using mocked integrations), providing a beautiful dashboard with time-series charts, account management, historical reporting, and plan-based access. Built on Cloudflare Workers with a single Durable Object for persistence, the frontend leverages React, ShadCN UI, and Tailwind for optimal visual polish, performance, and responsive design.
 ## Quick Start
 Get started instantly with our one-click deployment to Cloudflare Pages:
-`[cloudflarebutton]` (Placeholder for one-click deploy button)
+`[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Olawaldroid/edgerevenue-ad-performance-revenue-tracker)` (Placeholder for one-click deploy button)
 ## Features
 - **Unified Dashboard**: Interactive time-series charts for daily revenue and spend, KPI cards (Total Revenue, Spend, ROI), and date-range filters.
 - **Multi-Account Aggregation**: Select multiple spend sources (e.g., Facebook Ads accounts) and a single revenue source (e.g., Google AdSense) to see combined performance.
