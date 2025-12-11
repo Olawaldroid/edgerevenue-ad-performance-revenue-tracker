@@ -1,121 +1,71 @@
 # EdgeRevenue — Ad Performance & Revenue Tracker
-
-EdgeRevenue is a visually exceptional, Cloudflare edge-native web application designed to track historical ad revenue. It pulls spend data from Facebook Ads and daily earnings from Google AdSense (using mocked integrations in Phase 1), providing a beautiful dashboard with time-series charts, account management, historical reporting, and plan-based access. Built on Cloudflare Workers with a single Durable Object for persistence, the frontend leverages React, ShadCN UI, and Tailwind for optimal visual polish, performance, and responsive design.
-
-## Key Features
-
-- **Dashboard**: Interactive time-series charts for daily revenue and spend, KPI cards, date-range filters, account selectors, historical tables, and CSV export.
-- **Integrations**: Manage Facebook Ads and Google AdSense accounts with mock credential setup, manual "pull now" functionality, and pull status tracking.
-- **Settings**: Customize timezone, currency, notifications, and data retention policies.
-- **Pricing**: Tiered plans (Free, Pro, Enterprise) with feature comparisons and upgrade CTAs.
+EdgeRevenue is a visually exceptional, Cloudflare edge-native web application designed to track historical ad revenue. It pulls spend data from Facebook Ads and daily earnings from Google AdSense (using mocked integrations), providing a beautiful dashboard with time-series charts, account management, historical reporting, and plan-based access. Built on Cloudflare Workers with a single Durable Object for persistence, the frontend leverages React, ShadCN UI, and Tailwind for optimal visual polish, performance, and responsive design.
+## Quick Start
+Get started instantly with our one-click deployment to Cloudflare Pages:
+`[cloudflarebutton]` (Placeholder for one-click deploy button)
+## Features
+- **Unified Dashboard**: Interactive time-series charts for daily revenue and spend, KPI cards (Total Revenue, Spend, ROI), and date-range filters.
+- **Multi-Account Aggregation**: Select multiple spend sources (e.g., Facebook Ads accounts) and a single revenue source (e.g., Google AdSense) to see combined performance.
+- **Integrations Management**: Easily add, remove, and manage connections to Facebook Ads and Google AdSense with a mock credential setup.
+- **Manual Data Pulls**: Simulate fetching the latest 30 days of data for any integration with a "Pull Now" button.
+- **Plan-Based Limits**: A mock user system with Free, Pro, and Enterprise tiers demonstrates usage limits on daily data pulls.
+- **Mock Billing Flow**: Upgrade your plan through a simulated checkout process that updates your capabilities locally.
+- **Reporting & Exports**: Download aggregated performance data as a CSV file or a mock PDF snapshot of your main chart.
+- **Settings**: Customize mock preferences for timezone, currency, notifications, and data retention.
 - **Visual Excellence**: Modern UI with micro-interactions, smooth animations (Framer Motion), responsive layouts, and high-contrast accessibility.
 - **Edge-Native Performance**: Low-latency data fetching via Cloudflare Workers, with mocked API pulls and Durable Object persistence for historical data.
-
 ## Technology Stack
-
 - **Frontend**: React 18+, React Router, Tailwind CSS 3+, ShadCN UI, Framer Motion, Recharts, @tanstack/react-query, Zustand, Sonner, Lucide React, React Hook Form + Zod.
 - **Backend**: Hono (routing), Cloudflare Workers, Durable Objects (persistence via custom entity system).
-- **Data & Utils**: Date-fns, UUID, Immer, Class Variance Authority (CVA).
 - **Build & Dev**: Vite, TypeScript, Bun (package manager), ESLint, Wrangler (Cloudflare CLI).
-- **UI Primitives**: Radix UI-based components from ShadCN.
-
-## Quick Start
-
-Get started instantly with our one-click deployment:
-
-[cloudflarebutton]
-
 ## Installation
-
 This project uses Bun as the package manager for faster installation and development. Ensure Bun is installed on your system (visit [bun.sh](https://bun.sh) for setup).
-
-1. Clone the repository:
-   ```
-   git clone <your-repo-url>
-   cd edge-revenue
-   ```
-
-2. Install dependencies:
-   ```
-   bun install
-   ```
-
-3. Set up environment (if needed for local development):
-   - Copy `.env.example` to `.env.local` and add any required variables (e.g., API keys for real integrations in future phases).
-   - Run type generation for Cloudflare bindings:
-     ```
-     bun run cf-typegen
-     ```
-
+1.  **Clone the repository:**
+    ```bash
+    git clone <your-repo-url>
+    cd edge-revenue
+    ```
+2.  **Install dependencies:**
+    ```bash
+    bun install
+    ```
+3.  **Type Generation:**
+    Generate types for Cloudflare bindings:
+    ```bash
+    bun run cf-typegen
+    ```
 ## Development
-
-1. Start the development server:
-   ```
-   bun run dev
-   ```
-   The app will be available at `http://localhost:3000` (or the port specified in your environment).
-
-2. In a separate terminal, start the Cloudflare Worker (for API development):
-   ```
-   bun run dev:worker
-   ```
-
-3. Key development commands:
-   - Lint code: `bun run lint`
-   - Build for production: `bun run build`
-   - Preview build: `bun run preview`
-   - Generate types: `bun run cf-typegen`
-
-### Usage Examples
-
-- **Dashboard Navigation**: After setup, visit `/dashboard` to view mock revenue data. Use date pickers to filter historical trends and click "Pull Now" for simulated data updates.
-- **Adding Integrations**: Navigate to `/integrations`, fill in mock credentials for Facebook Ads or Google AdSense, and test the connection.
-- **API Testing**: The backend exposes endpoints like `/api/integrations` and `/api/reports`. Use tools like curl or Postman:
-  ```
-  curl http://localhost:8787/api/test
-  ```
-- **Mock Data**: Initial mock accounts and revenue series are seeded on first API call. Extend `shared/mock-data.ts` for custom testing.
-
-The app follows a mobile-first responsive design. Test across devices using browser dev tools.
-
+1.  **Start the development server (Frontend & Backend):**
+    This single command starts the Vite frontend and the Wrangler backend worker simultaneously.
+    ```bash
+    bun run dev
+    ```
+    The app will be available at `http://localhost:3000` (or the specified port). API endpoints are available at `http://localhost:8787`.
+2.  **Key development commands:**
+    -   Lint code: `bun run lint`
+    -   Build for production: `bun run build`
+    -   Preview production build: `bun run preview`
 ## Deployment
-
 Deploy to Cloudflare Workers for global edge performance:
-
-1. Ensure Wrangler CLI is installed:
-   ```
-   bun add -g wrangler
-   npx wrangler login
-   ```
-
-2. Configure your account ID in `wrangler.jsonc` if needed (auto-detected for logged-in users).
-
-3. Deploy:
-   ```
-   bun run deploy
-   ```
-
-Your app will be live at `<project-name>.<account-id>.workers.dev`. For custom domains, update `wrangler.jsonc` and run `wrangler deploy --env production`.
-
-One-click deployment is also available:
-
-[cloudflarebutton]
-
-### Post-Deployment
-
-- Monitor logs and metrics via the Cloudflare Dashboard.
-- For production, enable real integrations in Phase 2 by adding OAuth flows and cron triggers in Wrangler config.
-- Scale with Cloudflare's edge network—no additional setup required.
-
-## Contributing
-
-1. Fork the repository and create a feature branch.
-2. Make changes and ensure tests pass (`bun run lint`).
-3. Commit with conventional messages and push.
-4. Open a Pull Request with a clear description.
-
-We welcome contributions for visual enhancements, new features, or bug fixes. Review the [phases roadmap](docs/phases.md) for upcoming work.
-
+1.  **Log in to Wrangler:**
+    ```bash
+    npx wrangler login
+    ```
+2.  **Deploy:**
+    ```bash
+    bun run deploy
+    ```
+    Your app will be live at `<project-name>.<your-account>.workers.dev`.
+## Troubleshooting
+-   **Blank Page on Deploy:** If your deployed Cloudflare Pages site is blank, ensure `public/_headers` and `vite.config.ts` are correctly configured. The `_headers` file is critical for serving assets with the correct MIME types.
+-   **API Errors (404):** Make sure your worker is correctly bound in `wrangler.jsonc` and that the API routes in `worker/user-routes.ts` match what the frontend is calling.
+-   **Build Failures:** Ensure all dependencies are correctly listed in `package.json` and that you are using a compatible version of Node.js/Bun.
+## Production Notes
+-   **Mock Data Limitation:** This application currently uses mock data seeded on the server. It does not connect to live Facebook or Google APIs.
+-   **Upgrade Path:** To connect to real APIs, you would need to:
+    1.  Implement OAuth2 flows for Facebook and Google.
+    2.  Securely store API tokens/credentials using Cloudflare's secret management.
+    3.  Replace the mock data generation in `worker/entities.ts` with actual API calls.
+    4.  Set up Cloudflare Cron Triggers in `wrangler.jsonc` to automate daily data pulls.
 ## License
-
-This project is MIT licensed. See [LICENSE](LICENSE) for details.
+This project is MIT licensed. See the LICENSE file for details.
